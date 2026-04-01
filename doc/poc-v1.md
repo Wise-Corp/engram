@@ -22,7 +22,7 @@ Here is my current persistent memory (if it exists):
 [contents of .claude/CLAUDE.md — if the file exists, paste it here, or ask Claude to read it]
 </memory>
 
-Based on what happened in this session and my current memory state, generate a single shell script called `extract_signals.sh` that I can run from my project root. The script should:
+Based on what happened in this session and my current memory state, generate a single shell script called `.claude/extract_signals.sh` that I can run from my project root. The script should:
 
 1. **Session diff analysis**: Use `git diff` and `git log` to identify what files changed, what was added/removed, and commit messages from today's work.
 
