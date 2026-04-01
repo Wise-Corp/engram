@@ -43,10 +43,11 @@ This script extracts deterministic signals from the codebase and git history:
 ### Script 2: `extract_dynamic.sh` — Interaction & Preference Signals
 
 This script analyzes the Claude Code session transcript to extract behavioral signals.
-The transcript location varies — check these paths in order:
-- `~/.claude/projects/*/sessions/*/transcript.jsonl` (Claude Code terminal)
-- The most recently modified `.jsonl` file under `~/.claude/`
-- If VSCode: check `~/.config/Code/User/globalStorage/` for relevant logs
+The transcript is a JSONL file stored by Claude Code. To find the most recent session transcript:
+- Claude Code stores transcripts at `~/.claude/projects/<project-path>/<uuid>.jsonl` where `<project-path>` is the absolute path with slashes replaced by dashes (e.g. `-home-user-myproject`) and `<uuid>.jsonl` is a per-session file.
+- To find the current project's transcripts, convert the current working directory to the dashed format and look in that subdirectory.
+- Pick the most recently modified `.jsonl` file (by `ls -t` or `stat`, NOT `find -printf` which is GNU-only).
+- Fallback: find the most recently modified `.jsonl` anywhere under `~/.claude/projects/`.
 
 The script should parse the transcript (JSONL format where each line is a JSON object with `role`, `content`, and optionally `tool_use` fields) and extract signals in TWO dimensions:
 
@@ -125,7 +126,9 @@ Requirements for both scripts:
 - Use only standard Unix tools + python3 for JSON parsing where needed
 - Handle missing transcripts gracefully (output empty sections, don't fail)
 - Complete in under 15 seconds total
-- Portable across macOS and Linux
+- Portable across macOS and Linux (no GNU-only flags like `find -printf`, no `date -d`; use compatible alternatives)
+- **Critical JSON safety**: NEVER interpolate shell variables containing JSON into Python heredocs via `json.loads('''$VAR''')` or similar patterns — this breaks when the content contains quotes. Instead, write intermediate JSON fragments to temp files and have the final Python assembler read those files. Use a quoted heredoc (`<< 'EOF'`) for the final assembly script so bash performs no expansion inside it. Each fragment file should be loaded with a `safe_load()` helper that catches `JSONDecodeError` and returns an empty fallback rather than crashing the whole assembly.
+- Use a `trap` to clean up any temp files on exit
 
 Output ONLY the two scripts, clearly separated. No explanations.
 ```
