@@ -125,7 +125,9 @@ Requirements for both scripts:
 - Use only standard Unix tools + python3 for JSON parsing where needed
 - Handle missing transcripts gracefully (output empty sections, don't fail)
 - Complete in under 15 seconds total
-- Portable across macOS and Linux
+- Portable across macOS and Linux (no GNU-only flags like `find -printf`, no `date -d`; use compatible alternatives)
+- **Critical JSON safety**: NEVER interpolate shell variables containing JSON into Python heredocs via `json.loads('''$VAR''')` or similar patterns — this breaks when the content contains quotes. Instead, write intermediate JSON fragments to temp files and have the final Python assembler read those files. Use a quoted heredoc (`<< 'EOF'`) for the final assembly script so bash performs no expansion inside it. Each fragment file should be loaded with a `safe_load()` helper that catches `JSONDecodeError` and returns an empty fallback rather than crashing the whole assembly.
+- Use a `trap` to clean up any temp files on exit
 
 Output ONLY the two scripts, clearly separated. No explanations.
 ```
