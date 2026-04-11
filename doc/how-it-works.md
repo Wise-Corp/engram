@@ -99,5 +99,5 @@ For retroactive processing of old sessions:
 ## Further Reading
 
 - [Design rationale](article.md) — the full argument for edge-augmented consolidation
-- [Changelog](changelog.md) — version history (v1 through v4.1), design decisions
+- [Changelog](changelog.md) — version history (v1 through v5), design decisions
 - [Original design conversation](transcript.md) — the session that started engram

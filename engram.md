@@ -1,15 +1,17 @@
 ---
 name: Engram — automated memory consolidation
-description: When user says "engram", run memory consolidation. Supports retroactive mode for old sessions.
+description: When user says "engram", run memory consolidation. When user says to deploy/update engram, fetch latest from GitHub.
 type: reference
 ---
+
+## Trigger: "engram"
 
 When the user says "engram", execute the full Engram loop:
 
 1. Reconcile `.claude/engram_manifest.json` — discover all sessions, identify un-engrammed ones
-2. Generate fresh extract_static.sh and extract_dynamic.sh (see [prompts/prompt1-extraction.md](prompts/prompt1-extraction.md))
+2. Generate fresh extract_static.sh and extract_dynamic.sh (from Prompt 1 in the engram repo)
 3. Write to .claude/, execute both, read .claude/session_signals.json
-4. Synthesize memory updates (see [prompts/prompt2-synthesis.md](prompts/prompt2-synthesis.md))
+4. Synthesize memory updates (from Prompt 2 in the engram repo)
 5. Tag the session in the manifest
 
 Trigger modes:
@@ -22,5 +24,32 @@ Scripts accept env var overrides for retroactive use:
 - ENGRAM_TRANSCRIPT → explicit transcript path for dynamic signals (default: most recent)
 
 Sessions with < 10 messages are auto-skipped as trivial.
+
+## Trigger: deploy/update engram
+
+When the user asks to deploy, install, or update engram (referencing https://github.com/Wise-Corp/engram), do this:
+
+1. Fetch the latest engram.md from the repo:
+   ```bash
+   curl -sL https://raw.githubusercontent.com/Wise-Corp/engram/main/engram.md -o /tmp/engram_latest.md
+   ```
+2. Copy it into the current project's memory:
+   ```bash
+   mkdir -p .claude/memory
+   cp /tmp/engram_latest.md .claude/memory/engram.md
+   ```
+3. Add to `.claude/memory/MEMORY.md` (create if missing) — add this line if not already present:
+   ```
+   - [Engram](engram.md) — automated memory consolidation trigger
+   ```
+4. Clean up:
+   ```bash
+   rm -f /tmp/engram_latest.md
+   ```
+5. Confirm: "Engram deployed. Say 'engram' to consolidate memory."
+
+For the prompts (needed during engram runs), fetch them on demand:
+- `https://raw.githubusercontent.com/Wise-Corp/engram/main/prompts/prompt1-extraction.md`
+- `https://raw.githubusercontent.com/Wise-Corp/engram/main/prompts/prompt2-synthesis.md`
 
 Source: https://github.com/Wise-Corp/engram
