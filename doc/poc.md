@@ -197,6 +197,18 @@ Field-tested with a 10-session retroactive batch on wisecorp-treso (2026-04-11).
 - The sentence contains a domain entity (from the vocabulary list) + a constraint keyword
 - Exclude sentences that are clearly debugging context ("because it was failing", "because the error", "because the test")
 
+### 5. Terminology Correction False Positives
+
+**Problem**: Signal 7 (terminology corrections — "X is not Y", "when I say X I mean") triggers on system-injected text (config skill prompts, session continuations) and on normal explanatory phrases where the user isn't actually correcting terminology.
+
+**Fix in Prompt 1**: Two-layer fix:
+- **Source filtering** (covered by fix 1): stripping system content removes the main source of false positives
+- **Pattern precision**: tighten the terminology correction patterns themselves:
+  - Require the corrected term to appear as a noun/entity, not a verb or common word
+  - Require the message to be a user message (role: "user"), not assistant self-correction
+  - Exclude matches where both sides of "is not" are common programming terms (e.g. "this is not a bug" is not a terminology correction)
+  - Weight matches higher when the user explicitly names a domain entity on at least one side of the correction
+
 ---
 
 ## PROMPT 1 — Generate Extraction Scripts
