@@ -1,48 +1,156 @@
 # Engram — Edge-Augmented Memory Consolidation for AI Coding Agents
-## PoC v3 — In-Session Automation
+## PoC v4 — Session Tagging & Retroactive Engramming
 
-### What Changed in v3
+### What Changed in v4
 
-v2 required three manual copy-paste steps: paste Prompt 1 → run scripts manually → paste Prompt 2 with JSON.
+v3 automated the full loop but only processed the current session, with no memory of what had already been engrammed. Run it twice on the same session? Double-processed. Forget to run it? Lost forever.
 
-v3 eliminates all copy-paste. The AI agent executes the entire loop in a single conversation turn:
+v4 adds:
+- **Session tagging**: a manifest tracks which sessions have been engrammed, preventing double-processing
+- **Retroactive engramming**: process old un-engrammed sessions — one by one, or all at once
+- **Trivial session filtering**: sessions with fewer than 10 messages are auto-skipped
 
-1. **Agent generates** the extraction scripts (tailored to the current session and project)
-2. **Agent runs** the scripts via its shell tool
-3. **Agent reads** the resulting signals JSON
-4. **Agent synthesizes** the memory update and writes it directly
+### Trigger Modes
 
-The user just says **"engram"** and the loop runs end-to-end.
+| Command | Behavior |
+|---|---|
+| `engram` | Process the **current session** only (v3 behavior + tagging) |
+| `engram retroactive` | **Batch mode** (default): process ALL un-engrammed sessions chronologically, synthesize once at the end |
+| `engram retroactive <uuid>` | **Single mode**: process one specific old session, synthesize immediately |
 
-### How It Works
+Chronological order (oldest first) is enforced in all modes — memory should build up progressively.
 
-Store the Engram instructions in your project's persistent memory (CLAUDE.md, memory files, or equivalent). When triggered, the agent:
+---
 
-1. Reads its current persistent memory
-2. Processes Prompt 1 internally → generates `extract_static.sh` and `extract_dynamic.sh`
-3. Writes both scripts to `.claude/` and executes them → `.claude/session_signals.json`
-4. Reads the signals JSON
-5. Processes Prompt 2 internally → updates the persistent memory files
+### Manifest
 
-The scripts are **ephemeral** — regenerated fresh each time, adapted to the current project state and session context. This is by design: the LLM decides what to extract based on what actually happened in the session.
+File: `.claude/engram_manifest.json`
 
-### Setup
-
-Add the following to your project's persistent memory system (e.g. `CLAUDE.md`, or a dedicated memory file if using Claude Code's auto-memory):
-
-```markdown
-## Engram — Memory Consolidation
-
-When the user says "engram" or "run engram", execute the full memory consolidation loop:
-
-1. **Generate extraction scripts** — Process Prompt 1 (below) using the current session
-   context and existing memory. Write two shell scripts to `.claude/`.
-2. **Run extraction** — Execute both scripts. Read `.claude/session_signals.json`.
-3. **Synthesize** — Process Prompt 2 (below) with the signals and current memory.
-   Update memory files where warranted. Skip updates if signals are too thin.
+```json
+{
+  "version": 1,
+  "project_path": "/home/user/myproject",
+  "sessions": {
+    "954fa331-...": {
+      "first_timestamp": "2026-03-22T14:30:00Z",
+      "last_timestamp": "2026-03-23T12:40:00Z",
+      "message_count": 247,
+      "engrammed": true,
+      "engrammed_at": "2026-04-11T14:30:00Z",
+      "mode": "batch"
+    }
+  }
+}
 ```
 
-Then include the two prompts (below) in the same file, so the agent has them available.
+Fields:
+- `first_timestamp` / `last_timestamp`: derived from the JSONL file (first and last message timestamps)
+- `message_count`: total user + assistant messages (not counting system/tool metadata lines)
+- `engrammed`: whether this session has been processed
+- `mode`: how it was processed — `"live"` (current session), `"batch"` (retroactive batch), `"single"` (retroactive single), `"skipped_trivial"` (auto-skipped, < 10 messages)
+
+### Manifest Reconciliation
+
+Before any engram run, the agent generates and runs a small reconciliation script that:
+
+1. Scans all `.jsonl` files in `~/.claude/projects/<project-path>/`
+2. Reads `.claude/engram_manifest.json` (creates if missing)
+3. For each JSONL not in the manifest: reads first/last lines for timestamps, counts messages, adds with `engrammed: false`
+4. Reports: N total sessions, M un-engrammed, K trivial (< 10 messages)
+
+This is a lightweight local operation — read two lines per file plus a line count.
+
+---
+
+### Script Adaptations
+
+The extraction scripts from v3 gain environment variable overrides for retroactive use:
+
+#### `extract_static.sh` — Date Range Override
+
+```bash
+# Defaults to today (v3 behavior) when env vars are not set
+SINCE="${ENGRAM_SINCE:-$(date +%Y-%m-%d)}"
+UNTIL="${ENGRAM_UNTIL:-}"
+
+# All git log calls use the range
+git log --since="$SINCE" ${UNTIL:+--until="$UNTIL"} ...
+```
+
+For retroactive sessions, the agent invokes:
+```bash
+ENGRAM_SINCE="2026-03-22" ENGRAM_UNTIL="2026-03-24" bash .claude/extract_static.sh
+```
+
+The `--until` is critical for retroactive mode — without it, a session from March 22 would pick up all commits from then to present.
+
+#### `extract_dynamic.sh` — Transcript Override
+
+```bash
+# Defaults to most recent transcript (v3 behavior) when env var is not set
+if [ -n "${ENGRAM_TRANSCRIPT:-}" ]; then
+    TRANSCRIPT="$ENGRAM_TRANSCRIPT"
+else
+    TRANSCRIPT=$(ls -t "$TRANSCRIPT_DIR"/*.jsonl | head -1)
+fi
+```
+
+For retroactive sessions:
+```bash
+ENGRAM_TRANSCRIPT="$HOME/.claude/projects/-home-user-myproject/954fa331-....jsonl" bash .claude/extract_dynamic.sh
+```
+
+---
+
+### Workflow: Live Mode (`engram`)
+
+Same as v3, plus:
+
+1. **Reconcile manifest** before starting
+2. After synthesis, **tag the current session** in the manifest: `engrammed: true`, `mode: "live"`
+
+### Workflow: Batch Retroactive (`engram retroactive`)
+
+1. **Reconcile manifest** — discover all sessions, identify un-engrammed ones
+2. **Sort** un-engrammed sessions by `first_timestamp` ascending (oldest first)
+3. **Filter out** the current session (still active, not ready)
+4. **Auto-skip trivial** sessions (< 10 messages) — tag as `skipped_trivial`
+5. **For each session** in chronological order:
+   - Derive date range from `first_timestamp` / `last_timestamp`
+   - Run `extract_static.sh` with `ENGRAM_SINCE` / `ENGRAM_UNTIL`
+   - Run `extract_dynamic.sh` with `ENGRAM_TRANSCRIPT`
+   - Accumulate the signals JSON into an ordered list
+   - Tag session in manifest: `engrammed: true`, `mode: "batch"`
+6. **Synthesize once** at the end — Prompt 2 receives the full accumulated signals array
+7. **Write** updated manifest
+
+The accumulated signals structure:
+```json
+{
+  "batch_mode": true,
+  "sessions_processed": 5,
+  "signals": [
+    {
+      "session_uuid": "954fa331-...",
+      "session_date": "2026-03-22 to 2026-03-23",
+      "static": { ... },
+      "dynamic": { ... }
+    },
+    ...
+  ]
+}
+```
+
+**Why single synthesis?** N synthesis calls would be N expensive LLM calls. A single call sees the full arc of how the project evolved, can spot preference drift, and produces a coherent memory update.
+
+### Workflow: Single Retroactive (`engram retroactive <uuid>`)
+
+1. Validate UUID exists in the transcript directory
+2. Extract date range from that session
+3. Run `extract_static.sh` with date range
+4. Run `extract_dynamic.sh` with transcript path
+5. **Synthesize immediately** (Prompt 2, single signals object)
+6. Tag session in manifest: `engrammed: true`, `mode: "single"`
 
 ---
 
@@ -59,25 +167,33 @@ Here is my current persistent memory:
 
 ### Script 1: `extract_static.sh` — Project State Signals
 
-Extracts deterministic signals from the codebase and git history:
+Extracts deterministic signals from the codebase and git history.
 
-1. **Session diff analysis**: `git diff` / `git log` for today's file changes, commits, additions, deletions
-2. **Frequency analysis**: most-touched files and directories over the last 5 days
+**Date range**: accept `ENGRAM_SINCE` and `ENGRAM_UNTIL` environment variables.
+Default `ENGRAM_SINCE` to today, `ENGRAM_UNTIL` to empty (open-ended).
+Replace all `git log --since` calls with `--since="$SINCE" ${UNTIL:+--until="$UNTIL"}`.
+
+Signals to extract:
+1. **Session diff analysis**: `git diff` / `git log` for file changes, commits, additions, deletions in the date range
+2. **Frequency analysis**: most-touched files and directories over the last 5 days from `SINCE`
 3. **Error pattern extraction**: removed debug statements, recent log errors
 4. **Convention detection**: import patterns, naming conventions, endpoint patterns in changed files
-5. **Contradiction detection**: compare persistent memory assertions against actual codebase state (package.json vs stated deps, test framework references vs actual test files, stated patterns vs code reality)
+5. **Contradiction detection**: compare persistent memory assertions against actual codebase state
 6. **Dependency changes**: diff of requirements.txt / package.json / Cargo.toml etc.
-7. **TODO/FIXME scan**: new TODOs added in this session, existing ones in codebase
+7. **TODO/FIXME scan**: new TODOs added in the date range, existing ones in codebase
 
 ### Script 2: `extract_dynamic.sh` — Interaction & Preference Signals
 
-Analyzes the Claude Code session transcript to extract behavioral signals.
+Analyzes a Claude Code session transcript to extract behavioral signals.
 
-**Finding the transcript:**
+**Transcript selection**: accept `ENGRAM_TRANSCRIPT` environment variable.
+When set, use it directly. When unset, find the most recently modified `.jsonl`
+in `~/.claude/projects/<project-path>/`.
+
+**Finding the transcript directory:**
 - Claude Code stores transcripts at `~/.claude/projects/<project-path>/<uuid>.jsonl`
   where `<project-path>` is the absolute path with slashes replaced by dashes
-  (e.g. `-home-user-myproject`)
-- Pick the most recently modified `.jsonl` file (by `ls -t`, NOT `find -printf` which is GNU-only)
+- Pick the most recently modified `.jsonl` file (by `ls -t`, NOT `find -printf`)
 - Transcript JSONL format: each line is a JSON object. Messages have a `message` field
   containing `role` ("user"/"assistant") and `content` (string or list of
   `{"type": "text", "text": "..."}` blocks)
@@ -127,7 +243,8 @@ Extract signals in TWO dimensions:
     terms → the project's domain lexicon
 
 **Script requirements:**
-- Output merged into `.claude/session_signals.json`
+- Output to `.claude/session_signals.json` (or `.claude/session_signals_<uuid_prefix>.json`
+  when `ENGRAM_BATCH_ID` env var is set, to avoid overwriting between batch iterations)
 - Use standard Unix tools + python3 for JSON
 - Handle missing transcripts gracefully
 - Portable macOS/Linux (no GNU-only flags)
@@ -141,10 +258,10 @@ Extract signals in TWO dimensions:
 ## PROMPT 2 — Synthesize Memory Update
 
 ```
-Here are the structured signals extracted from my project after our session.
+Here are the structured signals extracted from my project.
 
 <signals>
-{{CONTENTS_OF_.claude/session_signals.json}}
+{{SIGNALS_JSON — single object for live/single mode, or array for batch mode}}
 </signals>
 
 Current persistent memory:
@@ -162,6 +279,13 @@ Update the persistent memory. Follow these rules:
 5. Use absolute dates, never "recently" or "yesterday"
 6. If signals are thin (light session, no corrections, no code changes) — skip the update
    and report that. Don't force changes when there's nothing to consolidate.
+
+## Batch mode rules (when signals is an array)
+- Signals are ordered chronologically (oldest session first)
+- Later sessions supersede earlier ones when they contradict
+- Domain knowledge should reflect the cumulative understanding
+- User preferences may evolve — note trends, weight recent sessions more heavily
+- A single synthesis pass should produce ONE coherent memory update, not N incremental ones
 
 ## Structure
 Use these sections (adapt to your memory format — CLAUDE.md, individual files, etc.):
@@ -200,56 +324,55 @@ Use these sections (adapt to your memory format — CLAUDE.md, individual files,
 
 ---
 
-## v3 Automation — Memory File Template
+## v4 Automation — Memory File Template
 
-For Claude Code projects using auto-memory, save this as a reference memory file.
-The agent will find it automatically when the user says "engram":
+For Claude Code projects using auto-memory, save this as a reference memory file:
 
 ```markdown
 ---
 name: Engram — automated memory consolidation
-description: When user says "engram", run the full 3-step memory consolidation loop
+description: When user says "engram", run memory consolidation. Supports retroactive mode for old sessions.
 type: reference
 ---
 
 When the user says "engram", execute the full Engram loop:
 
-1. Generate fresh extract_static.sh and extract_dynamic.sh (Prompt 1 from Engram PoC)
-2. Write to .claude/, execute both, read .claude/session_signals.json
-3. Synthesize memory updates (Prompt 2 from Engram PoC)
-4. Update memory files where warranted; skip if signals are too thin
+1. Reconcile `.claude/engram_manifest.json` — discover all sessions, identify un-engrammed ones
+2. Generate fresh extract_static.sh and extract_dynamic.sh (Prompt 1)
+3. Write to .claude/, execute both, read .claude/session_signals.json
+4. Synthesize memory updates (Prompt 2)
+5. Tag the session in the manifest
+
+Trigger modes:
+- "engram" → current session only (live mode)
+- "engram retroactive" → all un-engrammed sessions in chronological order (batch mode)
+- "engram retroactive <uuid>" → one specific old session (single mode)
+
+Scripts accept env var overrides for retroactive use:
+- ENGRAM_SINCE / ENGRAM_UNTIL → date range for static signals (default: today)
+- ENGRAM_TRANSCRIPT → explicit transcript path for dynamic signals (default: most recent)
+
+Sessions with < 10 messages are auto-skipped as trivial.
 
 Source: https://github.com/Wise-Corp/engram
-```
-
-For projects using a single `CLAUDE.md`, append the trigger instruction directly:
-
-```markdown
-## Memory Consolidation
-When I say "engram", run the Engram loop: generate extraction scripts → run them →
-synthesize updates. See https://github.com/Wise-Corp/engram for full prompts.
 ```
 
 ---
 
 ## What Changed Across Versions
 
-| | v1 | v2 | v3 |
-|---|---|---|---|
-| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ |
-| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ |
-| User preference extraction | ❌ | ✅ | ✅ |
-| Domain knowledge extraction | ❌ | ✅ | ✅ |
-| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None |
-| Scripts generated fresh per session | ✅ | ✅ | ✅ |
-| Agent runs scripts autonomously | ❌ | ❌ | ✅ |
-| Agent synthesizes autonomously | ❌ | ❌ | ✅ |
-| Single-command trigger ("engram") | ❌ | ❌ | ✅ |
-
-The static signals tell Claude what the project **looks like**.
-The dynamic user signals tell Claude how the developer **wants to work**.
-The dynamic domain signals tell Claude what the project **means**.
-v3 closes the loop: the agent does all three without human intermediation.
+| | v1 | v2 | v3 | v4 |
+|---|---|---|---|---|
+| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ |
+| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ |
+| User preference extraction | ❌ | ✅ | ✅ | ✅ |
+| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ |
+| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None |
+| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ |
+| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ |
+| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ |
+| Retroactive single mode | ❌ | ❌ | ❌ | ✅ |
+| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ |
 
 ---
 

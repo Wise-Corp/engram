@@ -22,30 +22,33 @@ Two small API calls. Arbitrarily complex local processing in between.
 
 ## Status
 
-**PoC v3** -- fully automated, single-command trigger. The agent runs the entire loop (generate scripts → execute → synthesize) without copy-paste.
+**PoC v4** -- fully automated with session tagging and retroactive engramming. Never lose a session, never double-process one.
 
 ## Quick Start
 
-### v3 (automated -- recommended)
-
-Add the Engram trigger to your project memory (see [doc/poc.md](doc/poc.md) for the full template), then at session end:
+Add the Engram trigger to your project memory (see [doc/poc.md](doc/poc.md) for the template), then:
 
 ```
-You: engram
+You: engram                          # process current session
+You: engram retroactive              # batch-process all old un-engrammed sessions
+You: engram retroactive 954fa331     # process one specific old session
 ```
 
-The agent generates extraction scripts, runs them, reads the signals, and updates memory -- all in one turn.
+The agent generates extraction scripts, runs them, reads the signals, updates memory, and tags the session in a manifest -- all in one turn.
 
-### v2 (manual)
+## Features
 
-1. At session end, paste **Prompt 1** ([doc/poc.md](doc/poc.md)) into Claude Code -- it generates extraction scripts
-2. Run locally: `bash .claude/extract_static.sh && bash .claude/extract_dynamic.sh`
-3. Paste **Prompt 2** with the JSON output -- Claude produces an updated memory file
+- **Zero copy-paste** -- agent orchestrates the full loop autonomously (since v3)
+- **Session tagging** -- manifest tracks what's been engrammed, prevents double-processing (v4)
+- **Retroactive batch mode** -- process all missed sessions chronologically, synthesize once (v4)
+- **Retroactive single mode** -- process one specific old session on demand (v4)
+- **Trivial session auto-skip** -- sessions with < 10 messages are tagged and skipped (v4)
+- **Static + dynamic signals** -- git/codebase analysis + transcript behavioral analysis (since v2)
 
 ## Read More
 
 - [Design rationale](doc/article.md) -- full breakdown of the three-layer architecture and the meta-learning feedback loop
-- [PoC prompts + automation setup](doc/poc.md) -- v3 automated workflow, v2 manual prompts, version comparison
+- [PoC prompts + automation setup](doc/poc.md) -- v4 workflow, manifest format, trigger modes, version comparison
 
 ## License
 
