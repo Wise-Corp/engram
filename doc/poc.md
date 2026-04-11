@@ -1,136 +1,139 @@
 # Engram — Edge-Augmented Memory Consolidation for AI Coding Agents
-## PoC v2 — With Transcript-Derived Dynamic Signals
+## PoC v3 — In-Session Automation
 
-### How to Use
+### What Changed in v3
 
-This version adds **dynamic signals** extracted from the actual session transcript,
-capturing two dimensions that static code analysis can never reach:
-- **User preferences**: what you accepted, rejected, corrected — how you like to work
-- **Domain knowledge**: business terminology, rules, workflows, and entity relationships that Claude keeps misunderstanding
+v2 required three manual copy-paste steps: paste Prompt 1 → run scripts manually → paste Prompt 2 with JSON.
 
-**Workflow:**
-1. End of session → paste **Prompt 1** into Claude Code
-2. Claude generates two scripts: `extract_static.sh` (project signals) and `extract_dynamic.sh` (transcript signals)
-3. Run both locally → they produce `.claude/session_signals.json`
-4. Paste **Prompt 2** with the JSON results → Claude produces updated `CLAUDE.md`
+v3 eliminates all copy-paste. The AI agent executes the entire loop in a single conversation turn:
+
+1. **Agent generates** the extraction scripts (tailored to the current session and project)
+2. **Agent runs** the scripts via its shell tool
+3. **Agent reads** the resulting signals JSON
+4. **Agent synthesizes** the memory update and writes it directly
+
+The user just says **"engram"** and the loop runs end-to-end.
+
+### How It Works
+
+Store the Engram instructions in your project's persistent memory (CLAUDE.md, memory files, or equivalent). When triggered, the agent:
+
+1. Reads its current persistent memory
+2. Processes Prompt 1 internally → generates `extract_static.sh` and `extract_dynamic.sh`
+3. Writes both scripts to `.claude/` and executes them → `.claude/session_signals.json`
+4. Reads the signals JSON
+5. Processes Prompt 2 internally → updates the persistent memory files
+
+The scripts are **ephemeral** — regenerated fresh each time, adapted to the current project state and session context. This is by design: the LLM decides what to extract based on what actually happened in the session.
+
+### Setup
+
+Add the following to your project's persistent memory system (e.g. `CLAUDE.md`, or a dedicated memory file if using Claude Code's auto-memory):
+
+```markdown
+## Engram — Memory Consolidation
+
+When the user says "engram" or "run engram", execute the full memory consolidation loop:
+
+1. **Generate extraction scripts** — Process Prompt 1 (below) using the current session
+   context and existing memory. Write two shell scripts to `.claude/`.
+2. **Run extraction** — Execute both scripts. Read `.claude/session_signals.json`.
+3. **Synthesize** — Process Prompt 2 (below) with the signals and current memory.
+   Update memory files where warranted. Skip updates if signals are too thin.
+```
+
+Then include the two prompts (below) in the same file, so the agent has them available.
 
 ---
 
 ## PROMPT 1 — Generate Extraction Scripts
 
 ```
-I want to consolidate what happened in this session into persistent project memory using the Engram approach: you generate extraction scripts, I run them locally, then you synthesize the results.
+I want to consolidate what happened in this session into persistent project memory.
+Generate TWO shell scripts adapted to this project.
 
 Here is my current persistent memory:
 <memory>
-[contents of .claude/CLAUDE.md — if it exists]
+{{CURRENT_MEMORY}}
 </memory>
-
-Generate TWO shell scripts that I will run from my project root.
 
 ### Script 1: `extract_static.sh` — Project State Signals
 
-This script extracts deterministic signals from the codebase and git history:
+Extracts deterministic signals from the codebase and git history:
 
 1. **Session diff analysis**: `git diff` / `git log` for today's file changes, commits, additions, deletions
 2. **Frequency analysis**: most-touched files and directories over the last 5 days
 3. **Error pattern extraction**: removed debug statements, recent log errors
 4. **Convention detection**: import patterns, naming conventions, endpoint patterns in changed files
-5. **Contradiction detection**: compare CLAUDE.md assertions against actual codebase state (package.json vs stated deps, test framework references vs actual test files, stated patterns vs code reality)
+5. **Contradiction detection**: compare persistent memory assertions against actual codebase state (package.json vs stated deps, test framework references vs actual test files, stated patterns vs code reality)
 6. **Dependency changes**: diff of requirements.txt / package.json / Cargo.toml etc.
 7. **TODO/FIXME scan**: new TODOs added in this session, existing ones in codebase
 
 ### Script 2: `extract_dynamic.sh` — Interaction & Preference Signals
 
-This script analyzes the Claude Code session transcript to extract behavioral signals.
-The transcript is a JSONL file stored by Claude Code. To find the most recent session transcript:
-- Claude Code stores transcripts at `~/.claude/projects/<project-path>/<uuid>.jsonl` where `<project-path>` is the absolute path with slashes replaced by dashes (e.g. `-home-user-myproject`) and `<uuid>.jsonl` is a per-session file.
-- To find the current project's transcripts, convert the current working directory to the dashed format and look in that subdirectory.
-- Pick the most recently modified `.jsonl` file (by `ls -t` or `stat`, NOT `find -printf` which is GNU-only).
-- Fallback: find the most recently modified `.jsonl` anywhere under `~/.claude/projects/`.
+Analyzes the Claude Code session transcript to extract behavioral signals.
 
-The script should parse the transcript (JSONL format where each line is a JSON object with `role`, `content`, and optionally `tool_use` fields) and extract signals in TWO dimensions:
+**Finding the transcript:**
+- Claude Code stores transcripts at `~/.claude/projects/<project-path>/<uuid>.jsonl`
+  where `<project-path>` is the absolute path with slashes replaced by dashes
+  (e.g. `-home-user-myproject`)
+- Pick the most recently modified `.jsonl` file (by `ls -t`, NOT `find -printf` which is GNU-only)
+- Transcript JSONL format: each line is a JSON object. Messages have a `message` field
+  containing `role` ("user"/"assistant") and `content` (string or list of
+  `{"type": "text", "text": "..."}` blocks)
 
-### Dimension A: User Preferences (how the developer works)
+Extract signals in TWO dimensions:
 
-1. **Acceptance rate**: Count user messages that follow an assistant turn and classify them:
-   - ACCEPTED: messages matching patterns like "yes", "do it", "looks good", "go ahead", "perfect", "great", "ok", "👍", "ship it", "lgtm", or messages that simply ask for the next task without contesting the previous output
-   - REJECTED: messages matching "no", "don't", "stop", "wrong", "not what I", "actually", "wait", "instead", "revert", "undo"
-   - MODIFIED: messages matching "but change", "almost but", "close but", "can you also", "one thing", "tweak", "adjust"
-   - Output: counts and percentages for each category
+#### Dimension A: User Preferences (how the developer works)
 
-2. **Rejection context**: For each REJECTED or MODIFIED response, extract:
-   - The user's correction message (first 200 chars)
-   - What type of assistant action preceded it (file_edit, bash_command, explanation, architecture_suggestion) — detectable from tool_use blocks
-   - Output: list of {action_type, user_feedback_snippet} pairs
+1. **Acceptance rate**: Classify user messages following assistant turns:
+   - ACCEPTED: "yes", "do it", "looks good", "go ahead", "perfect", "great", "ok", "👍", "lgtm"
+   - REJECTED: "no", "don't", "stop", "wrong", "not what I", "actually", "wait", "instead", "revert"
+   - MODIFIED: "but change", "almost but", "close but", "can you also", "one thing", "tweak", "adjust"
+   - Output: counts and percentages
 
-3. **Coding preference keywords**: Extract recurring words/phrases from REJECTED and MODIFIED messages that relate to code style/structure:
-   - Run word frequency analysis on correction messages
-   - Filter out stop words and domain nouns (see Dimension B)
-   - Look for style indicators: "simpler", "verbose", "split", "merge", "inline", "separate", "smaller", "cleaner"
-   - Output: top 15 most frequent style-related words in corrections
+2. **Rejection context**: For REJECTED/MODIFIED responses, extract the user's correction
+   (first 200 chars) and the preceding assistant action type (file_edit, bash_command, etc.)
 
-4. **Iteration depth**: For sequences where the same file is edited multiple times consecutively:
-   - Count how many edits per file before the user moves on
-   - Flag files with 3+ consecutive edits as "high-friction" areas
-   - Output: list of {file, edit_count, final_accepted: bool}
+3. **Coding preference keywords**: Word frequency in correction messages,
+   filtered for style indicators: "simpler", "verbose", "split", "inline", "smaller", "cleaner"
 
-5. **Prompt complexity trend**: Measure average user message length (in words) across the session in quartiles:
-   - Q1 (first 25% of messages), Q2, Q3, Q4
-   - Rising length suggests Claude is losing context and the user is compensating
-   - Output: {q1_avg_words, q2_avg_words, q3_avg_words, q4_avg_words}
+4. **Iteration depth**: Files edited 3+ times consecutively → "high-friction" areas
 
-6. **Explicit style preferences**: Grep for preference language about code style:
-   - "I prefer", "always use", "never use", "don't like", "let's stick with"
-   - Output: list of extracted preference statements
+5. **Prompt complexity trend**: Average message length in quartiles
+   (rising = Claude losing context, user compensating)
 
-### Dimension B: Domain Knowledge (what the project is about)
+6. **Explicit style preferences**: Grep for "I prefer", "always use", "never use", "don't like"
 
-7. **Terminology corrections**: Detect when the user corrects Claude's understanding of a domain concept. Look for patterns:
-   - "X is not Y", "X and Y are different", "that's not a X, it's a Y"
-   - "when I say X I mean", "X here means", "in our context X is"
-   - "no, X refers to", "X is actually", "don't confuse X with Y"
-   - Output: list of {wrong_term, correct_term, user_explanation_snippet} triples
+#### Dimension B: Domain Knowledge (what the project is about)
 
-8. **Business rule statements**: Extract when the user explains WHY something must work a certain way. Detect:
-   - "because", "the rule is", "we have to", "we can't because", "regulation requires", "the client expects", "the workflow requires"
-   - "it must go through", "only after", "never before", "always requires"
-   - Capture the full sentence containing the rule (up to 300 chars)
-   - Output: list of {rule_statement, context_snippet}
+7. **Terminology corrections**: "X is not Y", "when I say X I mean", "don't confuse X with Y"
 
-9. **Workflow/state corrections**: Detect when Claude proposes an action that violates a process flow:
-   - User responses containing: "first we need to", "it has to go through", "before that", "after X then Y", "the order is", "the flow is", "can't skip"
-   - Output: list of {stated_workflow_constraint}
+8. **Business rule statements**: "because", "the rule is", "we have to", "we can't because",
+   "it must go through", "only after", "never before"
 
-10. **Entity relationship clarifications**: Detect when the user clarifies how domain objects relate:
-    - "X belongs to Y", "X has many Y", "X is a type of Y", "X is not the same as Y"
-    - "a X can have multiple Y", "every X must have a Y", "X is optional on Y"
-    - Output: list of {entity_a, entity_b, relationship_description}
+9. **Workflow/state corrections**: "first we need to", "has to go through", "the order is",
+   "can't skip"
 
-11. **Repeated explanations**: Detect when the user writes long (>50 word) messages that are explanatory rather than directive — these often indicate Claude misunderstood a domain concept:
-    - Heuristic: user message >50 words AND follows a REJECTED/MODIFIED classification AND contains few code-related tokens (no backticks, no file paths, low symbol density)
-    - These are domain lessons the user is teaching Claude
-    - Output: list of {explanation_snippet (first 300 chars), preceding_topic}
+10. **Entity relationship clarifications**: "X belongs to Y", "X has many Y",
+    "X is not the same as Y"
 
-12. **Abandoned approaches with domain reason**: Extend the general "abandoned approaches" detection — when the user pivots AND gives a domain reason:
-    - "that won't work because [business reason]", "the problem is [domain constraint]"
-    - Output: list of {abandoned_approach_snippet, domain_reason_snippet}
+11. **Repeated explanations**: User messages >50 words that are explanatory (few backticks,
+    few file paths) — these signal concepts Claude keeps misunderstanding
 
-13. **Domain vocabulary frequency**: Across ALL user messages (not just corrections), extract nouns and noun phrases that appear 3+ times and are NOT common programming terms. These form the project's domain lexicon:
-    - Filter out: file, function, class, error, bug, code, test, commit, branch, deploy, API, endpoint, route, model, database, query, etc.
-    - What remains are likely domain terms: "invoice", "quotation", "client", "warehouse", "shipment", "approval", etc.
-    - Output: ranked list of {term, frequency}
+12. **Abandoned approaches with domain reason**: "that won't work because [business reason]"
 
-Requirements for both scripts:
-- Output merged into a single `.claude/session_signals.json` (extract_static writes first, extract_dynamic merges in)
-- Use only standard Unix tools + python3 for JSON parsing where needed
-- Handle missing transcripts gracefully (output empty sections, don't fail)
-- Complete in under 15 seconds total
-- Portable across macOS and Linux (no GNU-only flags like `find -printf`, no `date -d`; use compatible alternatives)
-- **Critical JSON safety**: NEVER interpolate shell variables containing JSON into Python heredocs via `json.loads('''$VAR''')` or similar patterns — this breaks when the content contains quotes. Instead, write intermediate JSON fragments to temp files and have the final Python assembler read those files. Use a quoted heredoc (`<< 'EOF'`) for the final assembly script so bash performs no expansion inside it. Each fragment file should be loaded with a `safe_load()` helper that catches `JSONDecodeError` and returns an empty fallback rather than crashing the whole assembly.
-- Use a `trap` to clean up any temp files on exit
+13. **Domain vocabulary frequency**: Nouns appearing 3+ times that aren't common programming
+    terms → the project's domain lexicon
 
-Output ONLY the two scripts, clearly separated. No explanations.
+**Script requirements:**
+- Output merged into `.claude/session_signals.json`
+- Use standard Unix tools + python3 for JSON
+- Handle missing transcripts gracefully
+- Portable macOS/Linux (no GNU-only flags)
+- JSON safety: never interpolate shell vars into Python heredocs — use temp files
+  or pass via sys.argv / environment
+- `trap` to clean up temp files
 ```
 
 ---
@@ -139,121 +142,123 @@ Output ONLY the two scripts, clearly separated. No explanations.
 
 ```
 Here are the structured signals extracted from my project after our session.
-They include both static signals (codebase state) and dynamic signals (interaction patterns from the transcript).
 
 <signals>
-[paste contents of .claude/session_signals.json here]
+{{CONTENTS_OF_.claude/session_signals.json}}
 </signals>
 
 Current persistent memory:
 <current_memory>
-[paste contents of .claude/CLAUDE.md here, or "No existing memory file."]
+{{CURRENT_MEMORY}}
 </current_memory>
 
-Produce an updated CLAUDE.md. Follow these rules:
+Update the persistent memory. Follow these rules:
 
 ## Content rules
 1. Preserve high-value existing entries that are still true
-2. Update contradicted facts with a "(updated YYYY-MM-DD)" note
-3. Add new learnings from static signals (conventions, architecture, deps)
+2. Update contradicted facts with "(updated YYYY-MM-DD)" note
+3. Add new learnings from signals (conventions, architecture, deps)
 4. Prune stale entries not reflected in recent signals
 5. Use absolute dates, never "recently" or "yesterday"
-6. Keep under 150 lines — every line must earn its place
+6. If signals are thin (light session, no corrections, no code changes) — skip the update
+   and report that. Don't force changes when there's nothing to consolidate.
 
 ## Structure
-Use these sections:
+Use these sections (adapt to your memory format — CLAUDE.md, individual files, etc.):
 - **Project Overview**: what this project is and does
-- **Domain Model**: business entities, their relationships, and how they differ from each other. Written to prevent an AI from confusing related-but-distinct concepts. E.g.: "A Quotation is NOT an Order. A Quotation becomes an Order only after client approval. They are separate database tables with separate lifecycles."
-- **Business Rules**: hard constraints that must never be violated, extracted from domain corrections. E.g.: "Invoices require soft-delete for audit compliance — never use hard delete." "A shipment cannot be created without a validated order."
-- **Workflow & State Machines**: process flows with explicit ordering constraints. E.g.: "Order lifecycle: draft → submitted → validated → shipped → invoiced. Transitions cannot skip states."
-- **Domain Vocabulary**: key terms and their project-specific meanings, especially where they differ from common usage or where two terms are easily confused
+- **Domain Model**: business entities, relationships, disambiguations.
+  Written to prevent AI from confusing related-but-distinct concepts
+- **Business Rules**: hard constraints, phrased as non-negotiable rules with reasons
+- **Workflow & State Machines**: process flows with explicit ordering
+- **Domain Vocabulary**: project-specific terminology and meaning
 - **Architecture Decisions**: key technical choices and rationale
 - **Conventions**: coding patterns, naming, file organization
-- **User Preferences**: how the developer likes to work with Claude — code style, response style, commit granularity, friction areas
-- **Active Work**: current focus areas based on recent signals
+- **User Preferences**: actionable instructions for future sessions
+- **Active Work**: current focus areas
 - **Known Issues**: bugs, tech debt, friction points
-- **Key Dependencies**: current stack
-- **Recent Changes**: significant changes from last session(s)
 
-## Critical: the Domain Knowledge sections (Domain Model, Business Rules, Workflow, Vocabulary)
-These sections prevent the most costly type of AI error: misunderstanding the business.
-Based on the dynamic signals from Dimension B:
-- Every terminology correction becomes a vocabulary entry or a disambiguation note in Domain Model
-- Every business rule statement becomes an entry in Business Rules, phrased as a hard constraint with its reason
-- Every workflow correction becomes an explicit state/ordering constraint
-- Every repeated explanation signals a concept that Claude keeps getting wrong — give it extra emphasis and clarity
-- Phrase these as RULES, not descriptions. Future Claude sessions should read these as non-negotiable constraints, e.g.:
-  "NEVER confuse Client (company entity) with User (login account). They have a many-to-many relationship."
-  "RULE: An invoice can only be generated from a validated order. No exceptions."
+## Domain Knowledge sections (from Dimension B signals)
+- Every terminology correction → vocabulary entry or disambiguation note
+- Every business rule → hard constraint with its reason
+- Every workflow correction → explicit ordering constraint
+- Every repeated explanation → extra emphasis (Claude keeps getting this wrong)
+- Phrase as RULES, not descriptions:
+  "NEVER confuse Client (company entity) with User (login account)."
+  "RULE: An invoice can only be generated from a validated order."
   "WORKFLOW: Payment must be recorded BEFORE delivery confirmation is sent."
 
-## Critical: the User Preferences section
-Based on the dynamic signals from Dimension A:
-- If the acceptance rate is high for certain action types, note those as strengths
-- If certain patterns are consistently rejected, note them as anti-patterns FOR THIS USER
-- Extract any explicitly stated preferences verbatim
-- If prompt complexity rises across the session, note what topics caused confusion
-- If certain files had high iteration depth, note what the friction was about
-- Phrase these as actionable instructions for a future Claude session, e.g.:
+## User Preferences section (from Dimension A signals)
+- High acceptance rate for certain actions → note as strengths
+- Consistently rejected patterns → note as anti-patterns FOR THIS USER
+- Rising prompt complexity → note what topics caused confusion
+- High iteration depth files → note friction areas
+- Phrase as actionable instructions:
   "User prefers small, focused commits over large batches"
   "User rejects class-based patterns — always use functions"
-  "User wants explicit error handling, not bare try/except"
   "When editing templates, propose changes in small increments — high iteration area"
-
-## Output
-Output ONLY the updated CLAUDE.md content, ready to write to file.
 ```
 
 ---
 
-## Automation
+## v3 Automation — Memory File Template
 
-```bash
-# Add to .bashrc / .zshrc
-alias engram='bash .claude/extract_static.sh && bash .claude/extract_dynamic.sh && echo "✅ Signals ready in .claude/session_signals.json"'
+For Claude Code projects using auto-memory, save this as a reference memory file.
+The agent will find it automatically when the user says "engram":
+
+```markdown
+---
+name: Engram — automated memory consolidation
+description: When user says "engram", run the full 3-step memory consolidation loop
+type: reference
+---
+
+When the user says "engram", execute the full Engram loop:
+
+1. Generate fresh extract_static.sh and extract_dynamic.sh (Prompt 1 from Engram PoC)
+2. Write to .claude/, execute both, read .claude/session_signals.json
+3. Synthesize memory updates (Prompt 2 from Engram PoC)
+4. Update memory files where warranted; skip if signals are too thin
+
+Source: https://github.com/Wise-Corp/engram
 ```
 
-### After running engram:
-1. Open Claude Code
-2. Paste Prompt 2 with the JSON contents
-3. Save the output as `.claude/CLAUDE.md`
+For projects using a single `CLAUDE.md`, append the trigger instruction directly:
 
-### Track quality over time:
-```bash
-echo "$(date -Iseconds) | signals=$(wc -c < .claude/session_signals.json) | memory=$(wc -l < .claude/CLAUDE.md) | acceptance=$(python3 -c "import json; d=json.load(open('.claude/session_signals.json')); print(d.get('interaction',{}).get('acceptance_rate',{}).get('accepted_pct','N/A'))")" >> .claude/engram_log.txt
+```markdown
+## Memory Consolidation
+When I say "engram", run the Engram loop: generate extraction scripts → run them →
+synthesize updates. See https://github.com/Wise-Corp/engram for full prompts.
 ```
 
 ---
 
-## What v2 Adds Over v1
+## What Changed Across Versions
 
-| | v1 (static only) | v2 (static + dynamic) |
-|---|---|---|
-| Knows what changed in code | ✅ | ✅ |
-| Knows what conventions exist | ✅ | ✅ |
-| Knows what you accepted/rejected | ❌ | ✅ |
-| Learns your coding preferences | ❌ | ✅ |
-| Detects communication friction | ❌ | ✅ |
-| Captures business terminology | ❌ | ✅ |
-| Records business rules & constraints | ❌ | ✅ |
-| Maps workflow/state machines | ❌ | ✅ |
-| Prevents entity confusion | ❌ | ✅ |
-| Detects repeated explanations | ❌ | ✅ |
+| | v1 | v2 | v3 |
+|---|---|---|---|
+| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ |
+| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ |
+| User preference extraction | ❌ | ✅ | ✅ |
+| Domain knowledge extraction | ❌ | ✅ | ✅ |
+| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None |
+| Scripts generated fresh per session | ✅ | ✅ | ✅ |
+| Agent runs scripts autonomously | ❌ | ❌ | ✅ |
+| Agent synthesizes autonomously | ❌ | ❌ | ✅ |
+| Single-command trigger ("engram") | ❌ | ❌ | ✅ |
 
 The static signals tell Claude what the project **looks like**.
 The dynamic user signals tell Claude how the developer **wants to work**.
 The dynamic domain signals tell Claude what the project **means**.
-All three together produce memory that prevents both coding friction and business logic errors.
+v3 closes the loop: the agent does all three without human intermediation.
 
 ---
 
-## Roadmap ideas (beyond PoC)
+## Roadmap (beyond PoC)
 
-- **Engram daemon**: auto-trigger extraction when a Claude Code session ends
+- **Engram daemon / hook**: auto-trigger when a Claude Code session ends (currently blocked by hook limitations — hooks can run shell but can't prompt the LLM)
 - **Preference drift detection**: compare User Preferences across versions to spot evolving taste
-- **Domain model maturation**: track how the Domain Model section evolves — early sessions will produce many corrections, mature projects should produce few. A spike in domain corrections after a period of stability signals a new feature area or business pivot.
-- **Cross-project preferences**: some preferences are user-global, not project-specific (code style, verbosity, commit granularity). Extract these into a `~/.claude/global_preferences.md`. Domain knowledge, by contrast, is always project-scoped.
-- **Domain ontology graph**: over many sessions, the entity relationships and business rules form a graph. Visualizing it could reveal gaps — entities Claude has never been corrected on (either it understands them or they've never come up).
-- **Feedback loop**: after each session, compare what was in CLAUDE.md against what actually got used/referenced. Prune entries with zero utility over N sessions.
-- **Meta-learning**: use the engram_log.txt to detect whether memory quality is improving. If acceptance rates rise over time, the system is working. If domain corrections decrease, the business model is being internalized. If not, the extraction scripts need tuning.
-- **Contradiction escalation**: when the static script detects a codebase-vs-memory contradiction AND the dynamic script shows Claude acted on the stale memory during the session, flag this as a critical memory failure to fix immediately.
+- **Domain model maturation**: track domain correction frequency — a spike after stability signals a new feature area or business pivot
+- **Cross-project preferences**: extract user-global preferences (code style, verbosity) into `~/.claude/global_preferences.md`, keep domain knowledge project-scoped
+- **Feedback loop**: compare memory entries against actual usage — prune entries with zero utility over N sessions
+- **Meta-learning**: track acceptance rates over time via `engram_log.txt` — rising rates mean the system is working
+- **Contradiction escalation**: when static signals detect memory-vs-code contradiction AND dynamic signals show Claude acted on the stale memory, flag as critical
