@@ -154,6 +154,51 @@ The accumulated signals structure:
 
 ---
 
+## v4.1 — Dynamic Signal Quality Improvements
+
+Field-tested with a 10-session retroactive batch on wisecorp-treso (2026-04-11). The extraction pipeline runs correctly, but the dynamic signal extraction in `extract_dynamic.sh` produces noisy output. These are Prompt 1 refinements — fix the prompt, not the generated scripts.
+
+### 1. Incomplete System Content Stripping
+
+**Problem**: Only `<ide_` and `<system-reminder` prefixes are filtered. Session continuation summaries, screenshot metadata (`[Image: original...Multiply coordinates...]`), and other injected system content leak into the analysis, polluting domain vocabulary and business rule signals.
+
+**Fix in Prompt 1**: Expand the content filter to strip:
+- Lines matching `\[Image:.*\]` (screenshot metadata)
+- Lines matching `Multiply coordinates` or `displayed at .* resolution`
+- Session continuation / context-restore summaries (system-injected recaps at session start)
+- Any content inside XML-style tags with known system prefixes (`<system-`, `<ide_`, `<command-`)
+
+### 2. Acceptance/Rejection Regex Too Broad
+
+**Problem**: Keyword-based classification produces false positives. "no" inside "for now" triggers a false rejection. "actually" in explanatory context ("actually, the reason is...") triggers a false rejection.
+
+**Fix in Prompt 1**: Switch from bare keyword matching to context-aware patterns:
+- Require rejection keywords at sentence start or after punctuation, not mid-phrase
+- Exclude "no" when followed by continuation words ("no need", "for now", "no worries")
+- Exclude "actually" when followed by explanation patterns ("actually, the reason", "actually it's because")
+- Consider requiring the user message to be short (< 50 words) for simple accept/reject classification — longer messages are more likely MODIFIED or explanatory
+
+### 3. Domain Vocabulary Noise
+
+**Problem**: UI/system terms leak into the domain vocabulary frequency list — words like "doublon", "image", "original", "coordinates", "multiply", "displayed", "properties", "settings", "plugin", "marketplace" appear as domain terms when they're IDE or system artifacts.
+
+**Fix in Prompt 1**: Expand the noise filter wordlist for domain vocabulary extraction (signal 13) to exclude:
+- IDE/UI terms: `plugin`, `marketplace`, `settings`, `properties`, `extension`, `workspace`, `panel`, `sidebar`, `toolbar`, `palette`
+- Image/screenshot artifacts: `image`, `original`, `coordinates`, `multiply`, `displayed`, `resolution`, `screenshot`, `pixel`
+- Common non-domain terms: `doublon`, `duplicate`, `default`, `configuration`, `parameter`, `option`
+
+### 4. Business Rule Detection Over-Triggers
+
+**Problem**: Signal 8 (business rule statements) triggers on "because" in normal conversational sentences ("I did X because Y was failing"), not actual business rule declarations.
+
+**Fix in Prompt 1**: Require compound pattern matching — a "because" alone is not enough. Require at least one of:
+- Imperative verb + constraint: "must", "can't", "never", "always", "only after", "never before"
+- Rule framing: "the rule is", "we have to", "it must go through"
+- The sentence contains a domain entity (from the vocabulary list) + a constraint keyword
+- Exclude sentences that are clearly debugging context ("because it was failing", "because the error", "because the test")
+
+---
+
 ## PROMPT 1 — Generate Extraction Scripts
 
 ```
