@@ -3,7 +3,7 @@
 **Date**: April 2, 2026  
 **Participants**: User (Nizar, Wisecorp) and Claude (Anthropic)  
 **Topic**: Analysis of the Claude Code source leak, critique of the "Dream" memory system, and iterative design of "Engram" — an edge-augmented memory consolidation system for AI coding agents.  
-**Scope**: This transcript covers the initial design sessions (v1 → v2). The project has since evolved through v3 (full in-session automation) and v4 (session tagging, retroactive engramming). See [poc.md](poc.md) for the current state.
+**Scope**: This transcript covers the initial design sessions (v1 → v2). The project has since evolved through v3 (full in-session automation) and v4 (session tagging, retroactive engramming). See [changelog.md](changelog.md) for the current state.
 
 ---
 
@@ -203,7 +203,7 @@ After this conversation, the project evolved through two more iterations:
 | File | Description |
 |------|-------------|
 | `article.md` | Full article: "Edge-Augmented Memory Consolidation for AI Coding Agents" |
-| `poc.md` | PoC prompt document (evolved through v1→v4, see current version) |
+| `changelog.md` | Version history and design log (evolved through v1→v4.1) |
 
 ## Key References
 

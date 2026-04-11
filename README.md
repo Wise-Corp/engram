@@ -35,7 +35,7 @@ The agent generates extraction scripts, runs them, reads the signals, updates me
 
 ## Status
 
-**PoC v4** -- fully automated with session tagging and retroactive engramming. See [v4.1 improvements](doc/poc.md#v41--dynamic-signal-quality-improvements) for signal quality tuning from field testing.
+**PoC v4** -- fully automated with session tagging and retroactive engramming. See [v4.1 improvements](doc/changelog.md#v41--dynamic-signal-quality-improvements) for signal quality tuning from field testing.
 
 ## Project Structure
 
@@ -47,7 +47,7 @@ prompts/
   prompt2-synthesis.md   <- Controls how signals become memory
 doc/
   how-it-works.md      <- Three-layer architecture explained
-  poc.md               <- Full PoC history (v1 through v4.1)
+  changelog.md         <- Version history (v1 through v4.1)
   article.md           <- Design rationale essay
   transcript.md        <- Original design conversation
 ```
@@ -57,7 +57,7 @@ doc/
 - [Install guide](install.md) -- 30-second setup
 - [How it works](doc/how-it-works.md) -- the three-layer architecture, signal taxonomy, manifest system
 - [Design rationale](doc/article.md) -- full breakdown of edge-augmented consolidation
-- [PoC changelog](doc/poc.md) -- version history, v4.1 improvements, design decisions
+- [Changelog](doc/changelog.md) -- version history, v4.1 improvements, design decisions
 
 ## License
 

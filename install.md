@@ -40,7 +40,7 @@ That's it. The agent handles everything else — generating extraction scripts, 
 
 ## What happens under the hood
 
-See [doc/how-it-works.md](doc/how-it-works.md) for the three-layer architecture, or [doc/poc.md](doc/poc.md) for the full design history.
+See [doc/how-it-works.md](doc/how-it-works.md) for the three-layer architecture, or [doc/changelog.md](doc/changelog.md) for the full design history.
 
 ## Customizing the prompts
 
