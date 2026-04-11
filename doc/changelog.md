@@ -1,5 +1,26 @@
 # Engram — Edge-Augmented Memory Consolidation for AI Coding Agents
-## PoC v4 — Session Tagging & Retroactive Engramming
+
+## v5 — One-Line Deployment
+
+### What Changed in v5
+
+v4.2 restructured the repo for user-friendliness but still required manual file copying. v5 makes deployment a single natural-language instruction:
+
+```
+deploy engram from https://github.com/Wise-Corp/engram
+```
+
+Claude fetches `engram.md` from GitHub, copies it into `.claude/memory/`, sets up the memory index, and confirms. No cloning, no manual steps.
+
+The `engram.md` trigger file now contains two triggers:
+- **"engram"** → run the consolidation loop (existing behavior)
+- **"deploy/update engram"** → fetch latest from GitHub and install/update
+
+Updating is the same command — Claude fetches the latest version and overwrites.
+
+---
+
+## v4 — Session Tagging & Retroactive Engramming
 
 ### What Changed in v4
 
@@ -224,18 +245,20 @@ The memory trigger file is at **[engram.md](../engram.md)** — this is the file
 
 ## What Changed Across Versions
 
-| | v1 | v2 | v3 | v4 |
-|---|---|---|---|---|
-| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ |
-| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ |
-| User preference extraction | ❌ | ✅ | ✅ | ✅ |
-| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ |
-| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None |
-| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ |
-| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ |
-| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ |
-| Retroactive single mode | ❌ | ❌ | ❌ | ✅ |
-| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ |
+| | v1 | v2 | v3 | v4 | v5 |
+|---|---|---|---|---|---|
+| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ | ✅ |
+| User preference extraction | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None | ❌ None |
+| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Retroactive single mode | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ | ✅ |
+| One-line deployment via Claude | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Self-updating trigger file | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
