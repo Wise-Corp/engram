@@ -22,18 +22,30 @@ Two small API calls. Arbitrarily complex local processing in between.
 
 ## Status
 
-This is currently a **proof of concept** -- two copy-paste prompts for Claude Code that validate the core idea. No infrastructure required.
+**PoC v3** -- fully automated, single-command trigger. The agent runs the entire loop (generate scripts → execute → synthesize) without copy-paste.
 
 ## Quick Start
 
-1. At session end, paste **Prompt 1** ([doc/poc.md](doc/poc.md)) into Claude Code -- it generates `extract_signals.sh`
-2. Run locally: `bash extract_signals.sh`
-3. Paste **Prompt 2** with the JSON output -- Claude produces an updated `CLAUDE.md`
+### v3 (automated -- recommended)
+
+Add the Engram trigger to your project memory (see [doc/poc.md](doc/poc.md) for the full template), then at session end:
+
+```
+You: engram
+```
+
+The agent generates extraction scripts, runs them, reads the signals, and updates memory -- all in one turn.
+
+### v2 (manual)
+
+1. At session end, paste **Prompt 1** ([doc/poc.md](doc/poc.md)) into Claude Code -- it generates extraction scripts
+2. Run locally: `bash .claude/extract_static.sh && bash .claude/extract_dynamic.sh`
+3. Paste **Prompt 2** with the JSON output -- Claude produces an updated memory file
 
 ## Read More
 
 - [Design rationale](doc/article.md) -- full breakdown of the three-layer architecture and the meta-learning feedback loop
-- [PoC prompts](doc/poc.md) -- ready-to-use prompts and automation tips
+- [PoC prompts + automation setup](doc/poc.md) -- v3 automated workflow, v2 manual prompts, version comparison
 
 ## License
 
