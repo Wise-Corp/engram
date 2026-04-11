@@ -104,9 +104,11 @@ That's the difference between an AI that can read the codebase and an AI that un
 
 ## The Practical Path: Engram
 
-The simplest proof of concept requires no infrastructure changes. At the end of each coding session, a prompt asks Claude to generate two extraction scripts: one for static project signals, one for dynamic transcript signals covering both user preferences and domain knowledge. Those scripts run locally, producing structured JSON. A second prompt feeds that output back to Claude and asks it to update the persistent memory file.
+The proof of concept requires no infrastructure changes. The user says "engram" at the end of a coding session, and the agent handles the rest: it generates two extraction scripts (one for static project signals, one for dynamic transcript signals covering both user preferences and domain knowledge), runs them locally, reads the structured JSON output, synthesizes an updated memory file, and tags the session in a manifest to prevent double-processing.
 
 Two API calls. Arbitrarily complex local processing in between. The user controls what runs on their machine. The memory gets smarter across three axes simultaneously — understanding the codebase, the developer, and the business domain.
+
+The system also supports retroactive consolidation — batch-processing old sessions that were never engrammed, in chronological order, with a single synthesis pass at the end. This means you never lose a session, even if you forget to run engram for a week.
 
 It's not the full adaptive meta-learning system described above. But it's enough to validate the core hypothesis: that deterministic preprocessing dramatically improves the cost-to-quality ratio of AI memory consolidation, and that transcript-derived signals — particularly domain knowledge corrections — are the key to preventing the most expensive category of AI errors: confidently doing the wrong thing because it didn't understand the business.
 

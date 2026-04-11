@@ -1,8 +1,9 @@
 # Conversation Transcript: From Claude Code Leak to Engram
 
 **Date**: April 2, 2026  
-**Participants**: User (developer, based in Serris, Île-de-France) and Claude (Anthropic)  
-**Topic**: Analysis of the Claude Code source leak, critique of the "Dream" memory system, and iterative design of "Engram" — an edge-augmented memory consolidation system for AI coding agents.
+**Participants**: User (Nizar, Wisecorp) and Claude (Anthropic)  
+**Topic**: Analysis of the Claude Code source leak, critique of the "Dream" memory system, and iterative design of "Engram" — an edge-augmented memory consolidation system for AI coding agents.  
+**Scope**: This transcript covers the initial design sessions (v1 → v2). The project has since evolved through v3 (full in-session automation) and v4 (session tagging, retroactive engramming). See [poc.md](poc.md) for the current state.
 
 ---
 
@@ -190,12 +191,19 @@ The most expensive AI errors aren't wrong indentation — they're "confidently b
 
 ---
 
-## Summary of Deliverables
+## What Happened Next
+
+After this conversation, the project evolved through two more iterations:
+
+- **v3** (in-session automation): eliminated the copy-paste workflow entirely. The agent now generates scripts, runs them, reads the signals, and synthesizes memory — all in a single turn triggered by saying "engram".
+- **v4** (session tagging & retroactive engramming): added a manifest that tracks which sessions have been engrammed, preventing double-processing. Supports retroactive batch mode (process all missed sessions chronologically) and single mode (process one specific old session). Trivial sessions (< 10 messages) are auto-skipped.
+
+## Summary of Deliverables (from this session)
 
 | File | Description |
 |------|-------------|
 | `article.md` | Full article: "Edge-Augmented Memory Consolidation for AI Coding Agents" |
-| `engram_poc_v2.md` | Complete PoC prompt with Prompt 1 (static + dynamic extraction) and Prompt 2 (synthesis with domain knowledge sections) |
+| `poc.md` | PoC prompt document (evolved through v1→v4, see current version) |
 
 ## Key References
 
