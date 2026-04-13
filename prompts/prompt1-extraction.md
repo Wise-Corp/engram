@@ -13,6 +13,17 @@ Here is my current persistent memory:
 {{CURRENT_MEMORY}}
 </memory>
 
+### Shared requirements (apply to BOTH scripts)
+- Output to `.claude/session_signals.json` (or `.claude/session_signals_<uuid_prefix>.json`
+  when `ENGRAM_BATCH_ID` env var is set, to avoid overwriting between batch iterations)
+- Use standard Unix tools + python3 for JSON
+- Handle missing data gracefully
+- Portable macOS/Linux (no GNU-only flags)
+- JSON safety: never interpolate shell vars into Python heredocs — use temp files
+  or pass via sys.argv / environment. Shell variables containing newlines or quotes
+  will break Python string literals if interpolated directly.
+- `trap` to clean up temp files
+
 ### Script 1: `extract_static.sh` — Project State Signals
 
 Extracts deterministic signals from the codebase and git history.
@@ -20,6 +31,10 @@ Extracts deterministic signals from the codebase and git history.
 **Date range**: accept `ENGRAM_SINCE` and `ENGRAM_UNTIL` environment variables.
 Default `ENGRAM_SINCE` to today, `ENGRAM_UNTIL` to empty (open-ended).
 Replace all `git log --since` calls with `--since="$SINCE" ${UNTIL:+--until="$UNTIL"}`.
+
+**Implementation pattern**: Write each git/shell output to a temp file, then read
+all temp files from a Python heredoc to build the JSON. Do NOT use `'''$VAR'''`
+or f-string interpolation with shell variables.
 
 Signals to extract:
 1. **Session diff analysis**: `git diff` / `git log` for file changes, commits, additions, deletions in the date range
@@ -90,13 +105,6 @@ Extract signals in TWO dimensions:
 13. **Domain vocabulary frequency**: Nouns appearing 3+ times that aren't common programming
     terms → the project's domain lexicon
 
-**Script requirements:**
-- Output to `.claude/session_signals.json` (or `.claude/session_signals_<uuid_prefix>.json`
-  when `ENGRAM_BATCH_ID` env var is set, to avoid overwriting between batch iterations)
-- Use standard Unix tools + python3 for JSON
+**Additional Script 2 requirements:**
 - Handle missing transcripts gracefully
-- Portable macOS/Linux (no GNU-only flags)
-- JSON safety: never interpolate shell vars into Python heredocs — use temp files
-  or pass via sys.argv / environment
-- `trap` to clean up temp files
 ```
