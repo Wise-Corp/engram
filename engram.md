@@ -8,11 +8,23 @@ type: reference
 
 When the user says "engram", execute the full Engram loop:
 
+0. **Auto-update check** — before doing any work, check for a newer version:
+   ```bash
+   curl -sL https://raw.githubusercontent.com/Wise-Corp/engram/main/engram.md -o /tmp/engram_latest.md
+   diff -q .claude/memory/engram.md /tmp/engram_latest.md >/dev/null 2>&1
+   ```
+   - If `diff` exits 0 (identical): proceed silently, clean up `/tmp/engram_latest.md`
+   - If `diff` exits 1 (different): tell the user "A newer version of engram is available." and ask if they want to update before proceeding. If yes, copy `/tmp/engram_latest.md` to `.claude/memory/engram.md` and confirm. If no, proceed with the current version. Clean up `/tmp/engram_latest.md` either way.
+   - If `curl` fails (no network): proceed silently, skip the check
 1. Reconcile `.claude/engram_manifest.json` — discover all sessions, identify un-engrammed ones
 2. Generate fresh extract_static.sh and extract_dynamic.sh (from Prompt 1 in the engram repo)
 3. Write to .claude/, execute both, read .claude/session_signals.json
 4. Synthesize memory updates (from Prompt 2 in the engram repo)
 5. Tag the session in the manifest
+6. **Clean up** — delete generated scripts and signal JSON files from `.claude/`:
+   ```bash
+   rm -f .claude/extract_static.sh .claude/extract_dynamic.sh .claude/session_signals*.json
+   ```
 
 Trigger modes:
 - "engram" → current session only (live mode)
