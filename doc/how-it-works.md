@@ -77,6 +77,16 @@ Before each run, a reconciliation step scans all `.jsonl` transcript files and a
 
 Scripts are **ephemeral** — generated fresh each session by Prompt 1. They are adapted to the specific project (its language, structure, conventions) and placed in `.claude/`. If a generated script has a bug, the fix goes in the prompt, not the script.
 
+### Auto-Cleanup
+
+After synthesis completes and the session is tagged in the manifest, engram deletes all generated artifacts:
+
+```bash
+rm -f .claude/extract_static.sh .claude/extract_dynamic.sh .claude/session_signals*.json
+```
+
+This keeps `.claude/` clean — only the manifest persists between runs. Scripts are regenerated each time anyway, and signal JSON files have already been consumed by synthesis.
+
 ## Environment Variable Overrides
 
 For retroactive processing of old sessions:

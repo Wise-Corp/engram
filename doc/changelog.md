@@ -1,5 +1,43 @@
 # Engram — Edge-Augmented Memory Consolidation for AI Coding Agents
 
+## v5.2 — Auto-Update Check
+
+### What Changed in v5.2
+
+Running "engram" now checks GitHub for a newer version of `engram.md` before starting work. If a difference is detected, the user is asked whether to update. This is a lightweight `curl` + `diff` — if there's no network, the check is silently skipped.
+
+This means users no longer need to remember to say "update engram" — the trigger keeps itself current.
+
+---
+
+## v5.1 — Auto-Cleanup & Signal Quality
+
+### What Changed in v5.1
+
+v5 left generated scripts and signal JSON files in `.claude/` after engramming. Over multiple sessions, this accumulated stale artifacts. v5.1 adds automatic cleanup and bakes the v4.1 signal quality fixes into Prompt 1.
+
+### Auto-Cleanup
+
+After synthesis and manifest tagging, engram now deletes all ephemeral artifacts:
+
+```bash
+rm -f .claude/extract_static.sh .claude/extract_dynamic.sh .claude/session_signals*.json
+```
+
+Only the manifest persists between runs. Scripts are regenerated each time, and signal JSON files have already been consumed by synthesis.
+
+### v4.1 Quality Fixes Applied to Prompt 1
+
+The v4.1 changelog documented 5 signal quality issues found during 10-session retroactive testing on wisecorp-treso. These were guidance notes — v5.1 bakes them directly into `prompt1-extraction.md` as mandatory rules for generated scripts:
+
+1. **System content stripping** — expanded filter for IDE tags, screenshot metadata, session continuations
+2. **Context-aware acceptance/rejection** — no more false positives from "no" in "for now" or "actually" in explanations
+3. **Domain vocabulary noise filtering** — expanded noise list excludes IDE/UI/system terms
+4. **Business rule precision** — requires compound pattern (constraint keyword + domain entity), not bare "because"
+5. **Terminology correction precision** — requires noun/entity terms, user role only, excludes programming term pairs
+
+---
+
 ## v5 — One-Line Deployment
 
 ### What Changed in v5
@@ -245,20 +283,23 @@ The memory trigger file is at **[engram.md](../engram.md)** — this is the file
 
 ## What Changed Across Versions
 
-| | v1 | v2 | v3 | v4 | v5 |
-|---|---|---|---|---|---|
-| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ | ✅ |
-| User preference extraction | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None | ❌ None |
-| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Retroactive single mode | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ | ✅ |
-| One-line deployment via Claude | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Self-updating trigger file | ❌ | ❌ | ❌ | ❌ | ✅ |
+| | v1 | v2 | v3 | v4 | v5 | v5.1 | v5.2 |
+|---|---|---|---|---|---|---|---|
+| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| User preference extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None |
+| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Retroactive single mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| One-line deployment via Claude | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Self-updating trigger file | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Auto-cleanup of artifacts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| v4.1 quality fixes in prompt | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Auto-update check on run | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 

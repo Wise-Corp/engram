@@ -107,4 +107,38 @@ Extract signals in TWO dimensions:
 
 **Additional Script 2 requirements:**
 - Handle missing transcripts gracefully
+
+**v4.1 quality rules — apply these to the generated scripts:**
+
+1. **System content stripping**: Before analyzing transcript messages, strip:
+   - Lines matching `\[Image:.*\]` (screenshot metadata)
+   - Lines matching `Multiply coordinates` or `displayed at .* resolution`
+   - Content inside XML-style tags with system prefixes (`<system-`, `<ide_`, `<command-`)
+   - Session continuation / context-restore summaries
+
+2. **Context-aware acceptance/rejection**: Do NOT use bare keyword matching.
+   - Require rejection keywords at sentence start or after punctuation
+   - Exclude "no" when followed by: "need", "worries", "problem", "idea", "way"
+   - Exclude "actually" when followed by: "the reason", "it's because", "I think"
+   - For simple accept/reject classification, prefer short messages (< 50 words)
+
+3. **Domain vocabulary noise filtering**: Expand the stop/noise word list to exclude:
+   - IDE/UI terms: `plugin`, `marketplace`, `settings`, `properties`, `extension`,
+     `workspace`, `panel`, `sidebar`, `toolbar`, `palette`, `readonly`, `proceed`,
+     `rejected`, `written`, `completed`, `matches`
+   - Image artifacts: `image`, `original`, `coordinates`, `multiply`, `displayed`,
+     `resolution`, `screenshot`, `pixel`
+   - System terms: `successfully`, `output`, `current`, `context`, `updated`, `related`
+
+4. **Business rule precision**: A bare "because" is NOT enough for signal 8.
+   Require at least one of:
+   - Constraint keyword: "must", "can't", "never", "always", "only after"
+   - Rule framing: "the rule is", "we have to", "it must go through"
+   - Domain entity + constraint in the same sentence
+   - Exclude debugging context: "because it was failing", "because the error"
+
+5. **Terminology correction precision**: For signal 7:
+   - Require the corrected term to be a noun/entity, not a common verb
+   - Only match user messages (role: "user"), not assistant self-corrections
+   - Exclude matches where both sides of "is not" are common programming terms
 ```
