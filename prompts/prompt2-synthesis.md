@@ -26,6 +26,11 @@ Update the persistent memory. Follow these rules:
 5. Use absolute dates, never "recently" or "yesterday"
 6. If signals are thin (light session, no corrections, no code changes) — skip the update
    and report that. Don't force changes when there's nothing to consolidate.
+   **Exception — new projects**: If no project memory exists yet (MEMORY.md contains only
+   the engram trigger, or fewer than 3 memory files), bootstrap baseline project memory
+   from available static signals and direct codebase inspection. An empty memory is worse
+   than a thin but accurate one. Create at minimum: project-overview, architecture, and
+   conventions files derived from the codebase itself.
 
 ## Batch mode rules (when signals is an array)
 - Signals are ordered chronologically (oldest session first)
