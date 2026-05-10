@@ -16,7 +16,13 @@ When the user says "engram", execute the full Engram loop:
    - If `diff` exits 0 (identical): proceed silently, clean up `/tmp/engram_latest.md`
    - If `diff` exits 1 (different): tell the user "A newer version of engram is available." and ask if they want to update before proceeding. If yes, copy `/tmp/engram_latest.md` to `.claude/memory/engram.md` and confirm. If no, proceed with the current version. Clean up `/tmp/engram_latest.md` either way.
    - If `curl` fails (no network): proceed silently, skip the check
-1. Reconcile `.claude/engram_manifest.json` — discover all sessions, identify un-engrammed ones
+1. Reconcile `.claude/engram_manifest.json`:
+   a. Generate and run a small reconciliation script that scans all `.jsonl` transcript
+      files in `~/.claude/projects/<project-path>/`, counts user+assistant messages,
+      reads first/last timestamps, and adds any missing sessions to the manifest
+      with `engrammed: false`
+   b. Identify un-engrammed sessions. Sessions with < 10 messages are auto-skipped
+      as trivial (tag them `skipped` in the manifest)
 2. Generate fresh extract_static.sh and extract_dynamic.sh (from Prompt 1 in the engram repo)
 3. Write to .claude/, execute both, read .claude/session_signals.json
 4. Synthesize memory updates (from Prompt 2 in the engram repo)

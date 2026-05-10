@@ -22,6 +22,10 @@ Here is my current persistent memory:
 - JSON safety: never interpolate shell vars into Python heredocs — use temp files
   or pass via sys.argv / environment. Shell variables containing newlines or quotes
   will break Python string literals if interpolated directly.
+- **Heredoc quoting**: ALWAYS quote the heredoc delimiter when the body contains
+  backticks, `$`, or backslashes — which Python regexes always do. Use `<< 'EOF'`,
+  never `<< EOF`. Pass any needed shell values via `os.environ` or `sys.argv`.
+  Unquoted heredocs with regex backticks cause bash syntax errors (command substitution).
 - `trap` to clean up temp files
 
 ### Script 1: `extract_static.sh` — Project State Signals
