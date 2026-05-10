@@ -26,7 +26,7 @@ You: engram retroactive 954fa331     # process one specific old session
 
 ## Status
 
-**v5** -- one-line deployment, fully automated consolidation with session tagging and retroactive engramming. See [changelog](doc/changelog.md) for version history.
+**v5.3** -- one-line deployment, fully automated consolidation with session tagging, retroactive engramming, self-updating trigger, and new-project bootstrapping. See [changelog](doc/changelog.md) for version history.
 
 ## Project Structure
 
@@ -38,7 +38,7 @@ prompts/
   prompt2-synthesis.md   <- Controls how signals become memory
 doc/
   how-it-works.md      <- Three-layer architecture explained
-  changelog.md         <- Version history (v1 through v5)
+  changelog.md         <- Version history (v1 through v5.3)
   article.md           <- Design rationale essay
   transcript.md        <- Original design conversation
 ```

@@ -3,7 +3,7 @@
 **Date**: April 2, 2026  
 **Participants**: User (Nizar, Wisecorp) and Claude (Anthropic)  
 **Topic**: Analysis of the Claude Code source leak, critique of the "Dream" memory system, and iterative design of "Engram" — an edge-augmented memory consolidation system for AI coding agents.  
-**Scope**: This transcript covers the initial design sessions (v1 → v2). The project has since evolved through v3 (full automation), v4 (session tagging, retroactive engramming), and v5 (one-line deployment). See [changelog.md](changelog.md) for the current state.
+**Scope**: This transcript covers the initial design sessions (v1 → v2). The project has since evolved through v3 (full automation), v4 (session tagging, retroactive engramming), v5 (one-line deployment), v5.1 (auto-cleanup), v5.2 (auto-update), and v5.3 (script reliability, new-project bootstrapping). See [changelog.md](changelog.md) for the current state.
 
 ---
 
@@ -198,13 +198,16 @@ After this conversation, the project evolved through two more iterations:
 - **v3** (in-session automation): eliminated the copy-paste workflow entirely. The agent now generates scripts, runs them, reads the signals, and synthesizes memory — all in a single turn triggered by saying "engram".
 - **v4** (session tagging & retroactive engramming): added a manifest that tracks which sessions have been engrammed, preventing double-processing. Supports retroactive batch mode (process all missed sessions chronologically) and single mode (process one specific old session). Trivial sessions (< 10 messages) are auto-skipped.
 - **v5** (one-line deployment): users deploy engram by telling Claude `deploy engram from https://github.com/Wise-Corp/engram`. No cloning, no manual file copying. The trigger file is self-updating.
+- **v5.1** (auto-cleanup): generated scripts and signal JSON files are deleted after engramming.
+- **v5.2** (auto-update check): engram checks GitHub for a newer version before every run.
+- **v5.3** (script reliability & new-project bootstrapping): heredoc-safe script generation, baseline memory for new projects, explicit reconciliation script instructions.
 
 ## Summary of Deliverables (from this session)
 
 | File | Description |
 |------|-------------|
 | `article.md` | Full article: "Edge-Augmented Memory Consolidation for AI Coding Agents" |
-| `changelog.md` | Version history and design log (evolved through v1→v5) |
+| `changelog.md` | Version history and design log (evolved through v1→v5.3) |
 
 ## Key References
 

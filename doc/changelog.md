@@ -1,5 +1,31 @@
 # Engram — Edge-Augmented Memory Consolidation for AI Coding Agents
 
+## v5.3 — Script Reliability & New-Project Bootstrapping
+
+### What Changed in v5.3
+
+Three fixes surfaced during a live retroactive engramming session (2026-05-10):
+
+### Heredoc Quoting Rule (Prompt 1)
+
+Python regex patterns contain backticks, which bash interprets as command substitution inside unquoted heredocs (`<< PYEOF`). This caused `extract_dynamic.sh` to crash with a bash syntax error before any signals could be extracted.
+
+The Shared Requirements section in Prompt 1 now explicitly requires quoted heredoc delimiters (`<< 'EOF'`, never `<< EOF`) when the body contains backticks, `$`, or backslashes — which Python regexes always do. Shell values must be passed via `os.environ` or `sys.argv`, never via heredoc interpolation.
+
+### New-Project Bootstrapping (Prompt 2)
+
+Rule 6 ("thin signals → skip update") left brand-new projects with zero memory files. When MEMORY.md contained only the engram trigger, synthesis would skip entirely even though baseline memory was needed for future sessions to build on.
+
+Added an exception: when fewer than 3 memory files exist, bootstrap baseline project memory (project-overview, architecture, conventions) from available static signals and direct codebase inspection. An empty memory is worse than a thin but accurate one.
+
+### Reconciliation Script Instructions (engram.md)
+
+Step 1 of the trigger ("Reconcile `.claude/engram_manifest.json`") was a one-liner with no implementation detail. LLMs reconciled manually by inspecting files rather than generating a proper reconciliation script.
+
+Expanded with explicit instructions: generate and run a small reconciliation script that scans all `.jsonl` transcript files, counts user+assistant messages, reads first/last timestamps, and adds missing sessions to the manifest with `engrammed: false`.
+
+---
+
 ## v5.2 — Auto-Update Check
 
 ### What Changed in v5.2
@@ -283,23 +309,26 @@ The memory trigger file is at **[engram.md](../engram.md)** — this is the file
 
 ## What Changed Across Versions
 
-| | v1 | v2 | v3 | v4 | v5 | v5.1 | v5.2 |
-|---|---|---|---|---|---|---|---|
-| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| User preference extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None |
-| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Retroactive single mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| One-line deployment via Claude | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Self-updating trigger file | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Auto-cleanup of artifacts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| v4.1 quality fixes in prompt | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Auto-update check on run | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| | v1 | v2 | v3 | v4 | v5 | v5.1 | v5.2 | v5.3 |
+|---|---|---|---|---|---|---|---|---|
+| Static signals (git, deps, conventions) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dynamic signals (transcript analysis) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| User preference extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Domain knowledge extraction | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Manual copy-paste workflow | 2 pastes | 2 pastes | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None |
+| Agent runs loop autonomously | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Session tagging (no double-processing) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Retroactive batch mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Retroactive single mode | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Trivial session auto-skip | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| One-line deployment via Claude | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Self-updating trigger file | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Auto-cleanup of artifacts | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| v4.1 quality fixes in prompt | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Auto-update check on run | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Heredoc-safe script generation | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| New-project memory bootstrapping | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Reconciliation script generation | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 
 ---
 

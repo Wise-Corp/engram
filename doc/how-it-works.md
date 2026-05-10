@@ -104,10 +104,11 @@ For retroactive processing of old sessions:
 - Scripts must be portable across macOS and Linux (no GNU-only flags)
 - Scripts must complete in under 15 seconds total
 - JSON assembly uses temp files with `safe_load()`, never shell variable interpolation into Python heredocs
+- Heredocs containing Python regex must use quoted delimiters (`<< 'EOF'`, never `<< EOF`) to prevent bash from interpreting backticks as command substitution
 - Temp files are cleaned up via `trap 'rm -rf "$TMPDIR"' EXIT`
 
 ## Further Reading
 
 - [Design rationale](article.md) — the full argument for edge-augmented consolidation
-- [Changelog](changelog.md) — version history (v1 through v5), design decisions
+- [Changelog](changelog.md) — version history (v1 through v5.3), design decisions
 - [Original design conversation](transcript.md) — the session that started engram
