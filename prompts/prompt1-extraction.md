@@ -14,8 +14,14 @@ Here is my current persistent memory:
 </memory>
 
 ### Shared requirements (apply to BOTH scripts)
-- Output to `.claude/session_signals.json` (or `.claude/session_signals_<uuid_prefix>.json`
-  when `ENGRAM_BATCH_ID` env var is set, to avoid overwriting between batch iterations)
+
+- **Output files — use separate filenames for static and dynamic signals.**
+  The two scripts MUST NOT write to the same file (the second run would overwrite
+  the first). Use the `ENGRAM_BATCH_ID` env var to build distinct names:
+  - Static script → `.claude/session_signals_<ENGRAM_BATCH_ID>_static.json`
+  - Dynamic script → `.claude/session_signals_<ENGRAM_BATCH_ID>_dynamic.json`
+  In live mode (no `ENGRAM_BATCH_ID` set), default to
+  `.claude/session_signals_static.json` and `.claude/session_signals_dynamic.json`.
 - Use standard Unix tools + python3 for JSON
 - Handle missing data gracefully
 - Portable macOS/Linux (no GNU-only flags)

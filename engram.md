@@ -23,13 +23,32 @@ When the user says "engram", execute the full Engram loop:
       with `engrammed: false`
    b. Identify un-engrammed sessions. Sessions with < 10 messages are auto-skipped
       as trivial (tag them `skipped` in the manifest)
-2. Generate fresh extract_static.sh and extract_dynamic.sh (from Prompt 1 in the engram repo)
-3. Write to .claude/, execute both, read .claude/session_signals.json
-4. Synthesize memory updates (from Prompt 2 in the engram repo)
-5. Tag the session in the manifest
-6. **Clean up** — delete generated scripts and signal JSON files from `.claude/`:
+2. **For each un-engrammed session, in chronological order:**
+   a. **Apply Prompt 1** to generate fresh `extract_static.sh` and
+      `extract_dynamic.py` adapted to the project. Do NOT reuse scripts
+      across sessions — `{{CURRENT_MEMORY}}` may differ between iterations.
+      Feed Prompt 1 with:
+      - **Current session (live mode):** the full current persistent memory
+        PLUS the volatile memory of the ongoing conversation.
+      - **Old session (retroactive mode):** ONLY the persistent memory
+        files (`.claude/memory/*.md`). Do NOT include the current
+        conversation context — that would leak future knowledge into the
+        extraction scripts for a past session.
+   b. **Run both scripts** for this session only:
+      - Static: `ENGRAM_SINCE` / `ENGRAM_UNTIL` set to the session's
+        `first_ts` and `last_ts` from the manifest (date + time, not just
+        date — this prevents overlap between same-day sessions).
+        Output → `.claude/session_signals_<prefix>_static.json`
+      - Dynamic: `ENGRAM_TRANSCRIPT` set to the session `.jsonl`.
+        Output → `.claude/session_signals_<prefix>_dynamic.json`
+   c. **Apply Prompt 2** — read BOTH `_static` and `_dynamic` signal files
+      for this session and synthesize memory updates. Do NOT read or inspect
+      the signal JSONs outside Prompt 2 — reading them between extraction
+      and synthesis wastes context.
+   d. Tag the session as `engrammed` in the manifest.
+3. Delete generated scripts and signal JSONs:
    ```bash
-   rm -f .claude/extract_static.sh .claude/extract_dynamic.sh .claude/session_signals*.json
+   rm -f .claude/extract_static.sh .claude/extract_dynamic.py .claude/session_signals*.json
    ```
 
 Trigger modes:
@@ -37,9 +56,15 @@ Trigger modes:
 - "engram retroactive" → all un-engrammed sessions in chronological order (batch mode)
 - "engram retroactive <uuid>" → one specific old session (single mode)
 
-Scripts accept env var overrides for retroactive use:
-- ENGRAM_SINCE / ENGRAM_UNTIL → date range for static signals (default: today)
-- ENGRAM_TRANSCRIPT → explicit transcript path for dynamic signals (default: most recent)
+Scripts accept env var overrides:
+- `ENGRAM_SINCE` / `ENGRAM_UNTIL` → date+time range for static extraction
+  (default: today at 00:00, open-ended). Git supports timestamps, so use the
+  manifest's `first_ts` / `last_ts` with second precision — this avoids giving
+  two sessions on the same day identical static signals.
+- `ENGRAM_TRANSCRIPT` → explicit transcript `.jsonl` path (default: most recent).
+- `ENGRAM_BATCH_ID` → session UUID prefix. Static writes to
+  `.claude/session_signals_<id>_static.json`; dynamic to
+  `.claude/session_signals_<id>_dynamic.json`.
 
 Sessions with < 10 messages are auto-skipped as trivial.
 

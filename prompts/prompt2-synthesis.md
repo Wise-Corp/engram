@@ -5,10 +5,19 @@ This prompt is used after extraction scripts have run. The agent sends the struc
 ---
 
 ```
-Here are the structured signals extracted from my project.
+Here are the structured signals extracted from this session.
+
+The signals come from two complementary extractions:
+- **Static** (project state: git history, file frequency, TODOs, dependency changes,
+  contradiction detection against persistent memory)
+- **Dynamic** (interaction analysis: acceptance rate, rejection context, business
+  rules found in conversation, domain vocabulary, repeated explanations)
+
+Both are scoped to a single session. Read them NOW — do not read or inspect the
+signal JSON files before reaching this synthesis step. Pre-reading wastes context.
 
 <signals>
-{{SIGNALS_JSON — single object for live/single mode, or array for batch mode}}
+{{SIGNALS_JSON — read from .claude/session_signals_<id>_static.json and _dynamic.json}}
 </signals>
 
 Current persistent memory:
